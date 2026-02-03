@@ -31,6 +31,8 @@ public class PFBarrelPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(new BarrelListener(this), this);
         getCommand("pfbarrel").setExecutor(new PFBarrelCommand(this));
+        getConfig().options().copyDefaults(true);
+        saveDefaultConfig();
 
         getLogger().info("PF Barrel Enabled!");
     }
