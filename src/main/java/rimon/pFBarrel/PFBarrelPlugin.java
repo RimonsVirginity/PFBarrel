@@ -8,14 +8,14 @@ public class PFBarrelPlugin extends JavaPlugin {
 
     private static PFBarrelPlugin instance;
     private static Economy econ = null;
-    private BarrelManager barrelManager;
+
     private ConfigManager configManager;
+    private BarrelManager barrelManager;
     private GUIManager guiManager;
 
     @Override
     public void onEnable() {
         instance = this;
-
 
         if (!setupEconomy()) {
             getLogger().severe("Disabled due to no Vault dependency found!");
@@ -23,23 +23,21 @@ public class PFBarrelPlugin extends JavaPlugin {
             return;
         }
 
-        this.saveDefaultConfig();
-
         this.configManager = new ConfigManager(this);
         this.barrelManager = new BarrelManager(this);
         this.guiManager = new GUIManager(this);
 
-        getServer().getPluginManager().registerEvents(new BarrelListener(this), this);
         getCommand("pfbarrel").setExecutor(new PFBarrelCommand(this));
-        getConfig().options().copyDefaults(true);
-        saveDefaultConfig();
+        getServer().getPluginManager().registerEvents(new BarrelListener(this), this);
 
-        getLogger().info("PF Barrel Enabled!");
+        getLogger().info("PF Barrel Enabled (Config Driven)!");
     }
 
     @Override
     public void onDisable() {
-        barrelManager.saveAll();
+        if (barrelManager != null) {
+            barrelManager.saveAll();
+        }
     }
 
     private boolean setupEconomy() {
@@ -52,7 +50,7 @@ public class PFBarrelPlugin extends JavaPlugin {
 
     public static PFBarrelPlugin getInstance() { return instance; }
     public static Economy getEconomy() { return econ; }
-    public BarrelManager getBarrelManager() { return barrelManager; }
     public ConfigManager getConfigManager() { return configManager; }
+    public BarrelManager getBarrelManager() { return barrelManager; }
     public GUIManager getGuiManager() { return guiManager; }
 }

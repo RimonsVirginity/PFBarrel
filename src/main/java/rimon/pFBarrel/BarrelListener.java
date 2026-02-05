@@ -1,19 +1,24 @@
 package rimon.pFBarrel;
 
-import net.kyori.adventure.text.Component;
+
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryMoveItemEvent;
-import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,178 +35,245 @@ public class BarrelListener implements Listener {
         this.plugin = plugin;
     }
 
-
-    @EventHandler
-    public void onHopperMove(InventoryMoveItemEvent event) {
-        Inventory dest = event.getDestination();
-        if (dest.getType() != InventoryType.BARREL) return;
-        if (dest.getLocation() == null) return;
-        BarrelData barrel = plugin.getBarrelManager().getBarrel(dest.getLocation());
-
-        if (barrel == null) return;
-        ItemStack movingItem = event.getItem();
-        if (plugin.getConfigManager().isAllowedCrop(movingItem.getType())) {
-            barrel.addItem(movingItem.getType(), movingItem.getAmount());
-            event.setCancelled(true);
-            event.getSource().removeItem(movingItem);
-
-        } else {
-            event.setCancelled(true);
-        }
-    }
-
     @EventHandler
     public void onBarrelInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Block block = event.getClickedBlock();
         if (block == null || block.getType() != Material.BARREL) return;
+
         BarrelData barrel = plugin.getBarrelManager().getBarrel(block.getLocation());
         if (barrel == null) return;
-        Player player = event.getPlayer();
 
-        if (player.isSneaking()) {
-            ItemStack handItem = event.getItem();
-            if (handItem != null && handItem.getType() == Material.HOPPER) {
-                return;
-            }
-            return;
-        }
+        Player player = event.getPlayer();
+        if (player.isSneaking()) return;
+
         event.setCancelled(true);
         openBarrels.put(player.getUniqueId(), barrel);
+
+        playSound(player, "click");
         plugin.getGuiManager().openMainMenu(player, barrel);
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+        if (event.getReason() == InventoryCloseEvent.Reason.OPEN_NEW) return;
+
+        openBarrels.remove(player.getUniqueId());
+        withdrawAmounts.remove(player.getUniqueId());
+        selectedMaterial.remove(player.getUniqueId());
+    }
+
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (openBarrels.containsKey(player.getUniqueId())) {
+            for (int slot : event.getRawSlots()) {
+                if (slot < event.getView().getTopInventory().getSize()) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+        }
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        Component title = event.getView().title();
-        String titleStr = title.toString();
 
-        if (event.getView().getTitle().contains("PF Barrel Storage")) {
+        if (!openBarrels.containsKey(player.getUniqueId())) return;
+
+        if (event.getClickedInventory() == event.getView().getTopInventory()) {
             event.setCancelled(true);
+        } else if (event.isShiftClick()) {
+            event.setCancelled(true);
+            return;
+        } else {
+            return;
+        }
+
+        Inventory top = event.getView().getTopInventory();
+        int mainSize = plugin.getConfigManager().getInt("menus.main.size");
+
+        if (top.getSize() == mainSize && !event.getView().getTitle().contains("Withdraw")) {
             handleMainMenuClick(event, player);
-        } else if (event.getView().getTitle().contains("Withdraw:")) {
-            event.setCancelled(true);
+        } else {
             handleWithdrawMenuClick(event, player);
         }
     }
 
     private void handleMainMenuClick(InventoryClickEvent event, Player player) {
         BarrelData barrel = openBarrels.get(player.getUniqueId());
-        if (barrel == null) { player.closeInventory(); return; }
+        ConfigManager cfg = plugin.getConfigManager();
+        int slot = event.getSlot();
 
-        ItemStack clicked = event.getCurrentItem();
-        if (clicked == null) return;
-        if (event.getSlot() == 48) { // Upgrade Booster
-            processUpgrade(player, barrel, "Booster");
-        } else if (event.getSlot() == 50) { // Upgrade Amount
-            processUpgrade(player, barrel, "Amount");
+        if (slot == cfg.getInt("menus.main.upgrade-booster.slot")) {
+            processUpgrade(player, barrel, "sell-booster");
+        } else if (slot == cfg.getInt("menus.main.upgrade-amount.slot")) {
+            processUpgrade(player, barrel, "sell-amount");
         } else {
-            Material type = clicked.getType();
-            if (plugin.getConfigManager().isAllowedCrop(type)) {
-                selectedMaterial.put(player.getUniqueId(), type);
-                withdrawAmounts.put(player.getUniqueId(), 1); // Default 1
-                plugin.getGuiManager().openWithdrawMenu(player, barrel, type, 1);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked != null && cfg.isAllowedCrop(clicked.getType())) {
+                playSound(player, "click");
+                selectedMaterial.put(player.getUniqueId(), clicked.getType());
+                withdrawAmounts.put(player.getUniqueId(), 1);
+                plugin.getGuiManager().openWithdrawMenu(player, barrel, clicked.getType(), 1);
             }
         }
     }
 
     private void handleWithdrawMenuClick(InventoryClickEvent event, Player player) {
         BarrelData barrel = openBarrels.get(player.getUniqueId());
+        if (!selectedMaterial.containsKey(player.getUniqueId())) {
+            plugin.getGuiManager().openMainMenu(player, barrel);
+            return;
+        }
+
         Material mat = selectedMaterial.get(player.getUniqueId());
         int current = withdrawAmounts.getOrDefault(player.getUniqueId(), 1);
         long maxStored = barrel.getAmount(mat);
+        ConfigManager cfg = plugin.getConfigManager();
+        int slot = event.getSlot();
 
-        switch (event.getSlot()) {
-            case 10: current -= 64; break;
-            case 11: current -= 16; break;
-            case 12: current -= 1; break;
-            case 14: current += 1; break;
-            case 15: current += 16; break;
-            case 16: current += 64; break;
-            case 31:
-                current = calculateSpace(player, mat, maxStored);
-                break;
-            case 36:
-                plugin.getGuiManager().openMainMenu(player, barrel);
-                return;
-            case 40:
-                executeWithdraw(player, barrel, mat, current);
-                return;
+        boolean updateMenu = false;
+
+        ConfigurationSection btnSec = plugin.getConfig().getConfigurationSection("menus.withdraw.buttons");
+        if (btnSec != null && btnSec.contains(String.valueOf(slot))) {
+            int change = btnSec.getInt(String.valueOf(slot));
+            current += change;
+            updateMenu = true;
+            playSound(player, "click");
         }
-        if (current < 1) current = 1;
-        if (current > maxStored) current = (int) maxStored;
-        int invSpace = calculateSpace(player, mat, maxStored);
-        if (current > invSpace) current = invSpace;
-
-        withdrawAmounts.put(player.getUniqueId(), current);
-        plugin.getGuiManager().openWithdrawMenu(player, barrel, mat, current);
-    }
-
-    private int calculateSpace(Player player, Material mat, long maxStored) {
-        int space = 0;
-        Inventory inv = player.getInventory();
-        for (int i = 0; i < 36; i++) {
-            ItemStack item = inv.getItem(i);
-            if (item == null) {
-                space += mat.getMaxStackSize();
-            } else if (item.getType() == mat) {
-                space += (mat.getMaxStackSize() - item.getAmount());
-            }
+        else if (slot == cfg.getInt("menus.withdraw.back-slot")) {
+            playSound(player, "click");
+            plugin.getGuiManager().openMainMenu(player, barrel);
+            return;
         }
-        return (int) Math.min(space, maxStored);
+        else if (slot == cfg.getInt("menus.withdraw.fill-inv-slot")) {
+            int invSpace = calculateSpace(player, mat);
+            current = (int) Math.min(invSpace, maxStored);
+            updateMenu = true;
+            playSound(player, "click");
+        }
+        else if (slot == cfg.getInt("menus.withdraw.confirm-slot")) {
+            executeWithdraw(player, barrel, mat, current);
+            return;
+        }
+
+        if (updateMenu) {
+            if (current < 1) current = 1;
+            if (current > maxStored) current = (int) maxStored;
+            int invSpace = calculateSpace(player, mat);
+            if (current > invSpace && invSpace > 0) current = invSpace;
+            if (current == 0 && invSpace == 0) current = 1;
+
+            withdrawAmounts.put(player.getUniqueId(), current);
+            plugin.getGuiManager().openWithdrawMenu(player, barrel, mat, current);
+        }
     }
 
     private void executeWithdraw(Player player, BarrelData barrel, Material mat, int amount) {
-        if (amount <= 0) return;
-        if (barrel.getAmount(mat) >= amount) {
+        if (barrel.getAmount(mat) <= 0) {
+            player.sendMessage(plugin.getConfigManager().getMessage("barrel-empty"));
+            playSound(player, "error");
+            return;
+        }
+
+        int space = calculateSpace(player, mat);
+
+        if (space <= 0) {
+            player.sendMessage(plugin.getConfigManager().getMessage("inventory-full"));
+            playSound(player, "error");
+            return;
+        }
+
+        if (amount > space) amount = space;
+
+        if (amount > barrel.getAmount(mat)) amount = (int) barrel.getAmount(mat);
+
+        if (amount > 0) {
             barrel.removeItem(mat, amount);
             player.getInventory().addItem(new ItemStack(mat, amount));
-            player.sendMessage(Component.text("Withdrew " + amount + " " + mat.name(), NamedTextColor.GREEN));
+
+            String msg = plugin.getConfig().getString("messages.withdraw-success")
+                    .replace("%amount%", String.valueOf(amount))
+                    .replace("%item%", mat.name());
+            player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
+            playSound(player, "success");
+
             plugin.getGuiManager().openMainMenu(player, barrel);
         }
     }
 
-    private void processUpgrade(Player player, BarrelData barrel, String type) {
-        double cost = 0;
-        if (type.equals("Booster")) {
-            cost = 30000000.0 * Math.pow(2, barrel.getSellBoosterLevel());
-        } else {
-            cost = 2000000.0 * Math.pow(2, barrel.getSellAmountLevel());
+    private int calculateSpace(Player player, Material mat) {
+        int space = 0;
+        for (ItemStack i : player.getInventory().getStorageContents()) {
+            if (i == null || i.getType() == Material.AIR) {
+                space += mat.getMaxStackSize();
+            } else if (i.getType() == mat) {
+                space += (mat.getMaxStackSize() - i.getAmount());
+            }
         }
+        return space;
+    }
+
+    private void processUpgrade(Player player, BarrelData barrel, String key) {
+        ConfigManager cfg = plugin.getConfigManager();
+        String path = "upgrades." + key + ".";
+
+        int currentLevel = (key.equals("sell-booster")) ? barrel.getSellBoosterLevel() : barrel.getSellAmountLevel();
+        double base = cfg.getDouble(path + "start-cost");
+        double mult = cfg.getDouble(path + "cost-multiplier");
+        double cost = base * Math.pow(mult, currentLevel);
 
         if (PFBarrelPlugin.getEconomy().getBalance(player) >= cost) {
             PFBarrelPlugin.getEconomy().withdrawPlayer(player, cost);
-            if (type.equals("Booster")) barrel.upgradeSellBooster();
+
+            if (key.equals("sell-booster")) barrel.upgradeSellBooster();
             else barrel.upgradeSellAmount();
 
-            player.sendMessage(Component.text("Upgrade successful!", NamedTextColor.GREEN));
+            String msg = plugin.getConfig().getString("messages.upgrade-success")
+                    .replace("%level%", String.valueOf(currentLevel + 1));
+            player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
+            playSound(player, "success");
+
             plugin.getGuiManager().openMainMenu(player, barrel);
         } else {
-            player.sendMessage(Component.text("Insufficient funds!", NamedTextColor.RED));
+            String msg = plugin.getConfig().getString("messages.insufficient-funds")
+                    .replace("%cost%", String.format("%,.0f", cost));
+            player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
+            playSound(player, "error");
         }
     }
+
+    private void playSound(Player p, String type) {
+        String soundName = plugin.getConfig().getString("sounds." + type);
+        if (soundName != null) {
+            try {
+                p.playSound(p.getLocation(), Sound.valueOf(soundName), 1f, 1f);
+            } catch (Exception e) {}
+        }
+    }
+
     @EventHandler
-    public void onBlockPlace(org.bukkit.event.block.BlockPlaceEvent event) {
+    public void onBlockPlace(BlockPlaceEvent event) {
         ItemStack item = event.getItemInHand();
-        if (item.getType() != Material.BARREL) return;
-        if (!item.hasItemMeta()) return;
+        if (item.getType() != Material.BARREL || !item.hasItemMeta()) return;
 
-        if (item.getItemMeta().getPersistentDataContainer().has(PFBarrelCommand.BARREL_KEY, org.bukkit.persistence.PersistentDataType.BYTE)) {
+        if (item.getItemMeta().getPersistentDataContainer().has(PFBarrelCommand.BARREL_KEY, PersistentDataType.BYTE)) {
             plugin.getBarrelManager().createBarrel(event.getBlock().getLocation());
-            event.getPlayer().sendMessage(Component.text("Infinite Barrel Placed!", NamedTextColor.GREEN));
+            event.getPlayer().sendMessage(plugin.getConfigManager().getMessage("barrel-placed"));
+            playSound(event.getPlayer(), "success");
         }
     }
 
     @EventHandler
-    public void onBlockBreak(org.bukkit.event.block.BlockBreakEvent event) {
+    public void onBlockBreak(BlockBreakEvent event) {
         if (event.getBlock().getType() != Material.BARREL) return;
-
         BarrelData data = plugin.getBarrelManager().getBarrel(event.getBlock().getLocation());
         if (data != null) {
-
             plugin.getBarrelManager().removeBarrel(event.getBlock().getLocation());
-            event.getPlayer().sendMessage(Component.text("Infinite Barrel Removed.", NamedTextColor.RED));
+            event.getPlayer().sendMessage(plugin.getConfigManager().getMessage("barrel-removed"));
         }
     }
 }

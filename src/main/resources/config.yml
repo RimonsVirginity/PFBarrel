@@ -1,1 +1,107 @@
-#  you smell
+# ==========================================
+#      PF Barrel - Main Configuration
+# ==========================================
+
+# --- General Settings ---
+barrel-block:
+  name: "&6&lInfinite Storage Barrel"
+  lore:
+    - "&7Place this block to create"
+    - "&7an infinite storage unit."
+    - ""
+    - "&eRight-Click to open menu"
+    - "&eShift+Right-Click to place blocks"
+
+# --- sounds when clicking in gui ---
+sounds:
+  click: "UI_BUTTON_CLICK"
+  success: "ENTITY_EXPERIENCE_ORB_PICKUP"
+  error: "BLOCK_NOTE_BLOCK_BASS"
+
+# --- Messages ---
+messages:
+  prefix: "&8[&6PFBarrel&8] "
+  no-permission: "&cYou do not have permission to do this."
+  receive-barrel: "&aYou have received an Infinite Barrel."
+  barrel-placed: "&aInfinite Barrel placed successfully!"
+  barrel-removed: "&cInfinite Barrel removed."
+  insufficient-funds: "&cYou do not have enough money! Cost: &c$%cost%"
+  upgrade-success: "&aUpgrade successful! New Level: &e%level%"
+  withdraw-success: "&aWithdrew &e%amount% &a%item%."
+  inventory-full: "&cYour inventory is full!"
+  barrel-empty: "&cThere are no items to withdraw!"
+  reload-success: "&aConfiguration files reloaded."
+
+# --- Main Menu Settings ---
+menus:
+  main:
+    title: "&8PF Barrel Storage"
+    size: 54
+    # Fill empty slots with stained glass?
+    fill-empty: true
+    fill-material: "GRAY_STAINED_GLASS_PANE"
+
+    # Where the crop items start appearing (0-based index)
+    crop-slots-start: 0
+
+    # Upgrade Buttons
+    upgrade-booster:
+      slot: 48
+      material: "EMERALD"
+      name: "&a&lUpgrade Sell Booster"
+      lore:
+        - "&7Current Level: &f%level%"
+        - "&7Bonus: &b+%percent%% &7Value"
+        - ""
+        - "&7Next Level: &b+%next_percent%% &7Value"
+        - "&7Cost: &a$%cost%"
+        - ""
+        - "&eClick to upgrade!"
+
+    upgrade-amount:
+      slot: 50
+      material: "HOPPER"
+      name: "&e&lUpgrade Sell Amount"
+      lore:
+        - "&7Current Level: &f%level%"
+        - "&7Capacity: &b%amount% &7items/shard"
+        - ""
+        - "&7Next Level: &b%next_amount% &7items/shard"
+        - "&7Cost: &a$%cost%"
+        - ""
+        - "&eClick to upgrade!"
+
+  withdraw:
+    title: "&8Withdraw: %item%"
+    size: 45
+    fill-empty: true
+    fill-material: "BLACK_STAINED_GLASS_PANE"
+
+    # Button Slots
+    info-slot: 22
+    fill-inv-slot: 31
+    confirm-slot: 40
+    back-slot: 36
+
+    # Layout for withdraw buttons
+    # Format: [Slot]:[Amount]
+    buttons:
+      10: -64
+      11: -16
+      12: -1
+      14: 1
+      15: 16
+      16: 64
+
+# --- Upgrade Logic ---
+upgrades:
+  sell-booster:
+    start-cost: 30000000.0
+    cost-multiplier: 2.0      # Price doubles every level
+    percent-per-level: 2.0    # 2% increase per level
+
+  sell-amount:
+    start-cost: 2000000.0
+    cost-multiplier: 2.0
+    base-amount: 3456         # Level 0 amount
+    amount-per-level: 3456    # Adds 1 dub per level
