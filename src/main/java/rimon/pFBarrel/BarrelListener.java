@@ -78,6 +78,27 @@ public class BarrelListener implements Listener {
     }
 
     @EventHandler
+    public void onInventoryMove(org.bukkit.event.inventory.InventoryMoveItemEvent event) {
+        if (event.getDestination().getType() != org.bukkit.event.inventory.InventoryType.BARREL) return;
+        org.bukkit.Location loc = event.getDestination().getLocation();
+        if (loc == null) return;
+
+        BarrelData barrel = plugin.getBarrelManager().getBarrel(loc);
+        if (barrel == null) return;
+
+        ItemStack item = event.getItem();
+        if (!plugin.getConfigManager().isAllowedCrop(item.getType())){
+            event.setCancelled(true);
+        }
+        event.setCancelled(true);
+        barrel.addItem(item.getType(), item.getAmount());
+
+        org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
+            event.getSource().remove(item);
+        });
+    }
+
+    @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
