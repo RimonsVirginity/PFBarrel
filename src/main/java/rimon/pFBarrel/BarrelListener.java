@@ -80,6 +80,7 @@ public class BarrelListener implements Listener {
     @EventHandler
     public void onInventoryMove(org.bukkit.event.inventory.InventoryMoveItemEvent event) {
         if (event.getDestination().getType() != org.bukkit.event.inventory.InventoryType.BARREL) return;
+
         org.bukkit.Location loc = event.getDestination().getLocation();
         if (loc == null) return;
 
@@ -87,14 +88,18 @@ public class BarrelListener implements Listener {
         if (barrel == null) return;
 
         ItemStack item = event.getItem();
-        if (!plugin.getConfigManager().isAllowedCrop(item.getType())){
-            event.setCancelled(true);
+        if (!plugin.getConfigManager().isAllowedCrop(item.getType())) {
+
+            return;
         }
+
         event.setCancelled(true);
+
         barrel.addItem(item.getType(), item.getAmount());
 
+        final ItemStack itemToRemove = item.clone();
         org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
-            event.getSource().remove(item);
+            event.getSource().removeItem(itemToRemove);
         });
     }
 
