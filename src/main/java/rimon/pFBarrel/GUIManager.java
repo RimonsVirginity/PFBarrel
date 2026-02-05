@@ -12,6 +12,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class GUIManager {
@@ -74,33 +76,22 @@ public class GUIManager {
                 int amount = buttons.getInt(slotStr);
                 Material mat = amount > 0 ? Material.LIME_STAINED_GLASS_PANE : Material.RED_STAINED_GLASS_PANE;
                 String name = (amount > 0 ? "+" : "") + amount;
-                inv.setItem(s, createButton(mat, name));
+
+                List<String> buttonLore = Collections.singletonList("&7Current Withdraw: &b" + String.format("%,d", currentWithdraw));
+                inv.setItem(s, createButton(mat, name, buttonLore));
             }
         }
 
         int maxSpace = calculateSpace(player, material, totalStored);
         boolean isFull = (currentWithdraw >= maxSpace && maxSpace > 0);
-
         Material bucketType = isFull ? Material.WATER_BUCKET : Material.BUCKET;
         String bucketName = isFull ? "Inventory Full Selected" : "Fill Inventory";
 
-        inv.setItem(cfg.getInt("menus.withdraw.fill-inv-slot"), createButton(bucketType, bucketName));
-        inv.setItem(cfg.getInt("menus.withdraw.confirm-slot"), createButton(Material.CHEST_MINECART, "Confirm Withdraw"));
-        inv.setItem(cfg.getInt("menus.withdraw.back-slot"), createButton(Material.ARROW, "Back"));
+        inv.setItem(cfg.getInt("menus.withdraw.fill-inv-slot"), createButton(bucketType, bucketName, null));
+        inv.setItem(cfg.getInt("menus.withdraw.confirm-slot"), createButton(Material.CHEST_MINECART, "Confirm Withdraw", Collections.singletonList("&7Click to take items")));
+        inv.setItem(cfg.getInt("menus.withdraw.back-slot"), createButton(Material.ARROW, "Back", null));
 
         player.openInventory(inv);
-    }
-
-    private int calculateSpace(Player player, Material mat, long maxStored) {
-        int space = 0;
-        for (ItemStack i : player.getInventory().getStorageContents()) {
-            if (i == null || i.getType() == Material.AIR) {
-                space += mat.getMaxStackSize();
-            } else if (i.getType() == mat) {
-                space += (mat.getMaxStackSize() - i.getAmount());
-            }
-        }
-        return space;
     }
 
     private void addUpgradeButton(Inventory inv, BarrelData barrel, String menuKey, String upgradeKey) {
@@ -154,10 +145,19 @@ public class GUIManager {
         return item;
     }
 
-    private ItemStack createButton(Material mat, String name) {
+    private ItemStack createButton(Material mat, String name, List<String> loreLines) {
         ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text(name, NamedTextColor.YELLOW));
+
+        if (loreLines != null && !loreLines.isEmpty()) {
+            List<Component> lore = new ArrayList<>();
+            for (String line : loreLines) {
+                lore.add(serializer.deserialize(line));
+            }
+            meta.lore(lore);
+        }
+
         item.setItemMeta(meta);
         return item;
     }
@@ -172,6 +172,18 @@ public class GUIManager {
                 inv.setItem(i, item);
             }
         }
+    }
+
+    private int calculateSpace(Player player, Material mat, long maxStored) {
+        int space = 0;
+        for (ItemStack i : player.getInventory().getStorageContents()) {
+            if (i == null || i.getType() == Material.AIR) {
+                space += mat.getMaxStackSize();
+            } else if (i.getType() == mat) {
+                space += (mat.getMaxStackSize() - i.getAmount());
+            }
+        }
+        return space;
     }
 
     private String prettify(String s) {

@@ -53,7 +53,6 @@ public class BarrelData {
         this.sellAmountLevel = amount;
     }
 
-
     public double getSellMultiplier() {
         double percentPerLevel = PFBarrelPlugin.getInstance().getConfigManager().getDouble("upgrades.sell-booster.percent-per-level");
         return 1.0 + ((sellBoosterLevel * percentPerLevel) / 100.0);
@@ -64,5 +63,31 @@ public class BarrelData {
         long base = cfg.getInt("upgrades.sell-amount.base-amount");
         long inc = cfg.getInt("upgrades.sell-amount.amount-per-level");
         return base + (sellAmountLevel * inc);
+    }
+
+    public String serializeItems() {
+        if (storedItems.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<Material, Long> entry : storedItems.entrySet()) {
+            sb.append(entry.getKey().name()).append(":").append(entry.getValue()).append(";");
+        }
+        return sb.toString();
+    }
+
+    public void loadFromSerialization(String data) {
+        if (data == null || data.isEmpty()) return;
+        try {
+            String[] parts = data.split(";");
+            for (String part : parts) {
+                if (part.contains(":")) {
+                    String[] split = part.split(":");
+                    Material mat = Material.getMaterial(split[0]);
+                    long amt = Long.parseLong(split[1]);
+                    if (mat != null) storedItems.put(mat, amt);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
