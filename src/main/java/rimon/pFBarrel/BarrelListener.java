@@ -69,11 +69,9 @@ public class BarrelListener implements Listener {
     }
 
     private boolean canAccess(Player player, Block block) {
-
         if (Bukkit.getPluginManager().getPlugin("GriefPrevention") == null) {
             return true;
         }
-
         return new GPHook().canAccess(player, block);
     }
 
@@ -165,16 +163,26 @@ public class BarrelListener implements Listener {
             current += change;
             updateMenu = true;
             playSound(player, "click");
-        } else if (slot == cfg.getInt("menus.withdraw.back-slot")) {
+        }
+        else if (slot == cfg.getInt("menus.withdraw.back-slot")) {
             playSound(player, "click");
             plugin.getGuiManager().openMainMenu(player, barrel);
             return;
-        } else if (slot == cfg.getInt("menus.withdraw.fill-inv-slot")) {
+        }
+        else if (slot == cfg.getInt("menus.withdraw.fill-inv-slot")) {
             int invSpace = calculateSpace(player, mat);
-            current = (int) Math.min(invSpace, maxStored);
+            int maxPossible = (int) Math.min(invSpace, maxStored);
+
+            if (current == maxPossible && current > 0) {
+                current = 1;
+            } else {
+                current = maxPossible;
+            }
+
             updateMenu = true;
             playSound(player, "click");
-        } else if (slot == cfg.getInt("menus.withdraw.confirm-slot")) {
+        }
+        else if (slot == cfg.getInt("menus.withdraw.confirm-slot")) {
             executeWithdraw(player, barrel, mat, current);
             return;
         }
