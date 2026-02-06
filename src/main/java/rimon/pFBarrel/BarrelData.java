@@ -3,7 +3,10 @@ package rimon.pFBarrel;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import org.bukkit.inventory.ItemStack;
 
 public class BarrelData {
 
@@ -89,5 +92,27 @@ public class BarrelData {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public List<ItemStack> collectSellableItems() {
+        List<ItemStack> soldBatch = new ArrayList<>();
+        long remainingCap = getItemsSoldPerShard();
+
+        for (Material mat : PFBarrelPlugin.getInstance().getConfigManager().getAllowedCrops()) {
+            if (remainingCap <= 0) break;
+
+            long stored = getAmount(mat);
+            if (stored > 0) {
+                long take = Math.min(stored, remainingCap);
+
+                if (take > 0) {
+                    soldBatch.add(new ItemStack(mat, (int) take));
+                    removeItem(mat, take);
+                    remainingCap -= take;
+                }
+            }
+        }
+
+        return soldBatch;
     }
 }

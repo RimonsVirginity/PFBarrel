@@ -12,6 +12,7 @@ public class PFBarrelPlugin extends JavaPlugin {
     private ConfigManager configManager;
     private BarrelManager barrelManager;
     private GUIManager guiManager;
+    private BarrelListener barrelListener;
 
     @Override
     public void onEnable() {
@@ -26,11 +27,14 @@ public class PFBarrelPlugin extends JavaPlugin {
         this.configManager = new ConfigManager(this);
         this.barrelManager = new BarrelManager(this);
         this.guiManager = new GUIManager(this);
+        this.barrelListener = new BarrelListener(this);
+        getServer().getPluginManager().registerEvents(this.barrelListener, this);
 
         getCommand("pfbarrel").setExecutor(new PFBarrelCommand(this));
-        getServer().getPluginManager().registerEvents(new BarrelListener(this), this);
 
-        getLogger().info("PF Barrel Enabled (Config Driven)!");
+        new BarrelUpdateTask(this).runTaskTimer(this, 20L, 20L);
+
+        getLogger().info("PF Barrel Enabled (Auto-Updating)!");
     }
 
     @Override
@@ -53,4 +57,5 @@ public class PFBarrelPlugin extends JavaPlugin {
     public ConfigManager getConfigManager() { return configManager; }
     public BarrelManager getBarrelManager() { return barrelManager; }
     public GUIManager getGuiManager() { return guiManager; }
+    public BarrelListener getBarrelListener() { return barrelListener; }
 }

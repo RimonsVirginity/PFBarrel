@@ -357,4 +357,15 @@ public class BarrelListener implements Listener {
             event.getSource().removeItem(itemToRemove);
         });
     }
+    public Map<UUID, BarrelData> getOpenBarrels() {
+        return openBarrels;
+    }
+
+    public Map<UUID, Material> getSelectedMaterials() {
+        return selectedMaterial;
+    }
+
+    public Map<UUID, Integer> getWithdrawAmounts() {
+        return withdrawAmounts;
+    }
 }
