@@ -243,7 +243,15 @@ public class BarrelListener implements Listener {
     private void processUpgrade(Player player, BarrelData barrel, String key) {
         ConfigManager cfg = plugin.getConfigManager();
         String path = "upgrades." + key + ".";
+
         int currentLevel = (key.equals("sell-booster")) ? barrel.getSellBoosterLevel() : barrel.getSellAmountLevel();
+        int maxLevel = cfg.getInt(path + "max-level");
+
+        if (currentLevel >= maxLevel) {
+            player.sendMessage(plugin.getConfigManager().getMessage("upgrade-maxed"));
+            playSound(player, "error");
+            return;
+        }
         double base = cfg.getDouble(path + "start-cost");
         double mult = cfg.getDouble(path + "cost-multiplier");
         double cost = base * Math.pow(mult, currentLevel);
@@ -252,12 +260,16 @@ public class BarrelListener implements Listener {
             PFBarrelPlugin.getEconomy().withdrawPlayer(player, cost);
             if (key.equals("sell-booster")) barrel.upgradeSellBooster();
             else barrel.upgradeSellAmount();
-            String msg = plugin.getConfig().getString("messages.upgrade-success").replace("%level%", String.valueOf(currentLevel + 1));
+
+            String msg = plugin.getConfig().getString("messages.upgrade-success")
+                    .replace("%level%", String.valueOf(currentLevel + 1));
             player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
             playSound(player, "success");
+
             plugin.getGuiManager().openMainMenu(player, barrel);
         } else {
-            String msg = plugin.getConfig().getString("messages.insufficient-funds").replace("%cost%", String.format("%,.0f", cost));
+            String msg = plugin.getConfig().getString("messages.insufficient-funds")
+                    .replace("%cost%", String.format("%,.0f", cost));
             player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
             playSound(player, "error");
         }
