@@ -3,6 +3,11 @@
 # ==========================================
 
 # --- General Settings ---
+settings:
+  # The specific lore line to look for to identify "Organic" items.
+  # This MUST match the color codes exactly (e.g. &5 for purple).
+  organic-lore: "&5Organic Produce"
+
 barrel-block:
   name: "&6&lInfinite Storage Barrel"
   lore:
@@ -11,12 +16,6 @@ barrel-block:
     - ""
     - "&eRight-Click to open menu"
     - "&eShift+Right-Click to place blocks"
-
-# --- sounds when clicking in gui ---
-sounds:
-  click: "UI_BUTTON_CLICK"
-  success: "ENTITY_EXPERIENCE_ORB_PICKUP"
-  error: "BLOCK_NOTE_BLOCK_BASS"
 
 # --- Messages ---
 messages:
@@ -27,22 +26,28 @@ messages:
   barrel-removed: "&cInfinite Barrel removed."
   insufficient-funds: "&cYou do not have enough money! Cost: &c$%cost%"
   upgrade-success: "&aUpgrade successful! New Level: &e%level%"
+  upgrade-maxed: "&cThis upgrade is already at the maximum level!"
   withdraw-success: "&aWithdrew &e%amount% &a%item%."
   inventory-full: "&cYour inventory is full!"
   barrel-empty: "&cThere are no items to withdraw!"
   reload-success: "&aConfiguration files reloaded."
-  upgrade-maxed: "&cThis upgrade is already at the maximum level!"
+
+# --- Sounds ---
+# Use standard Bukkit Sound names (e.g. UI_BUTTON_CLICK, ENTITY_PLAYER_LEVELUP)
+sounds:
+  click: "UI_BUTTON_CLICK"
+  success: "ENTITY_EXPERIENCE_ORB_PICKUP"
+  error: "BLOCK_NOTE_BLOCK_BASS"
 
 # --- Main Menu Settings ---
 menus:
   main:
     title: "&8PF Barrel Storage"
     size: 54
-    # Fill empty slots with stained glass?
     fill-empty: true
     fill-material: "GRAY_STAINED_GLASS_PANE"
 
-    # Where the crop items start appearing (0-based index)
+    # Where crops start (0-based index)
     crop-slots-start: 0
 
     # Upgrade Buttons
@@ -78,14 +83,13 @@ menus:
     fill-empty: true
     fill-material: "BLACK_STAINED_GLASS_PANE"
 
-    # Button Slots
+    # Slots
     info-slot: 22
     fill-inv-slot: 31
     confirm-slot: 40
     back-slot: 36
 
-    # Layout for withdraw buttons
-    # Format: [Slot]:[Amount]
+    # +/- Buttons [Slot]:[Amount]
     buttons:
       10: -64
       11: -16
@@ -100,11 +104,11 @@ upgrades:
     start-cost: 30000000.0
     cost-multiplier: 2.0      # Price doubles every level
     percent-per-level: 2.0    # 2% increase per level
-    max-level: 10
+    max-level: 10             # Max level cap
 
   sell-amount:
     start-cost: 2000000.0
     cost-multiplier: 2.0
     base-amount: 3456         # Level 0 amount
     amount-per-level: 3456    # Adds 1 dub per level
-    max-level: 10
+    max-level: 10             # Max level cap

@@ -7,3 +7,7 @@ commands:
   pfbarrel:
     description: Main command for PF Barrels
     permission: pfbarrel.admin
+
+  pfsell:
+    description: Test command to sell barrel items
+    permission: pfbarrel.admin

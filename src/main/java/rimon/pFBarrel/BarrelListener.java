@@ -3,6 +3,7 @@ package rimon.pFBarrel;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -24,11 +25,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
-
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -36,8 +33,9 @@ public class BarrelListener implements Listener {
 
     private final PFBarrelPlugin plugin;
     private final Map<UUID, Integer> withdrawAmounts = new HashMap<>();
-    private final Map<UUID, Material> selectedMaterial = new HashMap<>();
+    private final Map<UUID, String> selectedCropKey = new HashMap<>();
     private final Map<UUID, BarrelData> openBarrels = new HashMap<>();
+
     private final NamespacedKey KEY_ITEMS = new NamespacedKey("pfbarrel", "stored_items");
     private final NamespacedKey KEY_LEVELS = new NamespacedKey("pfbarrel", "upgrade_levels");
 
@@ -69,9 +67,7 @@ public class BarrelListener implements Listener {
     }
 
     private boolean canAccess(Player player, Block block) {
-        if (Bukkit.getPluginManager().getPlugin("GriefPrevention") == null) {
-            return true;
-        }
+        if (Bukkit.getPluginManager().getPlugin("GriefPrevention") == null) return true;
         return new GPHook().canAccess(player, block);
     }
 
@@ -82,7 +78,7 @@ public class BarrelListener implements Listener {
 
         openBarrels.remove(player.getUniqueId());
         withdrawAmounts.remove(player.getUniqueId());
-        selectedMaterial.remove(player.getUniqueId());
+        selectedCropKey.remove(player.getUniqueId());
     }
 
     @EventHandler
@@ -133,25 +129,29 @@ public class BarrelListener implements Listener {
             processUpgrade(player, barrel, "sell-amount");
         } else {
             ItemStack clicked = event.getCurrentItem();
-            if (clicked != null && cfg.isAllowedCrop(clicked.getType())) {
+            if (clicked == null || clicked.getType() == Material.AIR) return;
+
+            String detectedKey = identifyKeyFromItem(clicked);
+            if (detectedKey != null && cfg.isValidKey(detectedKey)) {
                 playSound(player, "click");
-                selectedMaterial.put(player.getUniqueId(), clicked.getType());
+                selectedCropKey.put(player.getUniqueId(), detectedKey);
                 withdrawAmounts.put(player.getUniqueId(), 1);
-                plugin.getGuiManager().openWithdrawMenu(player, barrel, clicked.getType(), 1);
+                plugin.getGuiManager().openWithdrawMenu(player, barrel, detectedKey, 1);
             }
         }
     }
 
     private void handleWithdrawMenuClick(InventoryClickEvent event, Player player) {
         BarrelData barrel = openBarrels.get(player.getUniqueId());
-        if (!selectedMaterial.containsKey(player.getUniqueId())) {
+        String key = selectedCropKey.get(player.getUniqueId());
+
+        if (key == null) {
             plugin.getGuiManager().openMainMenu(player, barrel);
             return;
         }
 
-        Material mat = selectedMaterial.get(player.getUniqueId());
         int current = withdrawAmounts.getOrDefault(player.getUniqueId(), 1);
-        long maxStored = barrel.getAmount(mat);
+        long maxStored = barrel.getAmount(key);
         ConfigManager cfg = plugin.getConfigManager();
         int slot = event.getSlot();
 
@@ -170,43 +170,39 @@ public class BarrelListener implements Listener {
             return;
         }
         else if (slot == cfg.getInt("menus.withdraw.fill-inv-slot")) {
-            int invSpace = calculateSpace(player, mat);
+            int invSpace = calculateSpace(player, barrel.createItemFromKey(key, 1));
             int maxPossible = (int) Math.min(invSpace, maxStored);
-
-            if (current == maxPossible && current > 0) {
-                current = 1;
-            } else {
-                current = maxPossible;
-            }
-
+            if (current == maxPossible && current > 0) current = 1; else current = maxPossible;
             updateMenu = true;
             playSound(player, "click");
         }
         else if (slot == cfg.getInt("menus.withdraw.confirm-slot")) {
-            executeWithdraw(player, barrel, mat, current);
+            executeWithdraw(player, barrel, key, current);
             return;
         }
 
         if (updateMenu) {
             if (current < 1) current = 1;
             if (current > maxStored) current = (int) maxStored;
-            int invSpace = calculateSpace(player, mat);
+            int invSpace = calculateSpace(player, barrel.createItemFromKey(key, 1));
             if (current > invSpace && invSpace > 0) current = invSpace;
             if (current == 0 && invSpace == 0) current = 1;
 
             withdrawAmounts.put(player.getUniqueId(), current);
-            plugin.getGuiManager().openWithdrawMenu(player, barrel, mat, current);
+            plugin.getGuiManager().openWithdrawMenu(player, barrel, key, current);
         }
     }
 
-    private void executeWithdraw(Player player, BarrelData barrel, Material mat, int amount) {
-        if (barrel.getAmount(mat) <= 0) {
+    private void executeWithdraw(Player player, BarrelData barrel, String key, int amount) {
+        if (barrel.getAmount(key) <= 0) {
             player.sendMessage(plugin.getConfigManager().getMessage("barrel-empty"));
             playSound(player, "error");
             return;
         }
 
-        int space = calculateSpace(player, mat);
+        ItemStack toGive = barrel.createItemFromKey(key, 1);
+        int space = calculateSpace(player, toGive);
+
         if (space <= 0) {
             player.sendMessage(plugin.getConfigManager().getMessage("inventory-full"));
             playSound(player, "error");
@@ -214,72 +210,64 @@ public class BarrelListener implements Listener {
         }
 
         if (amount > space) amount = space;
-        if (amount > barrel.getAmount(mat)) amount = (int) barrel.getAmount(mat);
+        if (amount > barrel.getAmount(key)) amount = (int) barrel.getAmount(key);
 
         if (amount > 0) {
-            barrel.removeItem(mat, amount);
-            player.getInventory().addItem(new ItemStack(mat, amount));
+            barrel.removeItem(key, amount);
+            toGive.setAmount(amount);
+            player.getInventory().addItem(toGive);
+
+            String displayName = toGive.getType().name();
+            if (key.endsWith("_ORGANIC")) displayName = "Organic " + displayName;
+
             String msg = plugin.getConfig().getString("messages.withdraw-success")
                     .replace("%amount%", String.valueOf(amount))
-                    .replace("%item%", mat.name());
+                    .replace("%item%", displayName);
             player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
             playSound(player, "success");
             plugin.getGuiManager().openMainMenu(player, barrel);
         }
     }
 
-    private int calculateSpace(Player player, Material mat) {
+    private int calculateSpace(Player player, ItemStack prototype) {
         int space = 0;
+        Material mat = prototype.getType();
+        int maxStack = mat.getMaxStackSize();
+
         for (ItemStack i : player.getInventory().getStorageContents()) {
             if (i == null || i.getType() == Material.AIR) {
-                space += mat.getMaxStackSize();
-            } else if (i.getType() == mat) {
-                space += (mat.getMaxStackSize() - i.getAmount());
+                space += maxStack;
+            } else if (i.isSimilar(prototype)) {
+                space += (maxStack - i.getAmount());
             }
         }
         return space;
     }
 
-    private void processUpgrade(Player player, BarrelData barrel, String key) {
-        ConfigManager cfg = plugin.getConfigManager();
-        String path = "upgrades." + key + ".";
+    private String identifyKeyFromItem(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR) return null;
 
-        int currentLevel = (key.equals("sell-booster")) ? barrel.getSellBoosterLevel() : barrel.getSellAmountLevel();
-        int maxLevel = cfg.getInt(path + "max-level");
+        boolean isOrganic = false;
+        String targetLore = plugin.getConfigManager().getString("settings.organic-lore");
 
-        if (currentLevel >= maxLevel) {
-            player.sendMessage(plugin.getConfigManager().getMessage("upgrade-maxed"));
-            playSound(player, "error");
-            return;
+        if (item.hasItemMeta() && item.getItemMeta().hasLore()) {
+
+            for (Component c : item.getItemMeta().lore()) {
+                String plain = PlainTextComponentSerializer.plainText().serialize(c);
+                if (plain.contains("Organic Produce")) {
+                    isOrganic = true;
+                    break;
+                }
+            }
         }
-        double base = cfg.getDouble(path + "start-cost");
-        double mult = cfg.getDouble(path + "cost-multiplier");
-        double cost = base * Math.pow(mult, currentLevel);
 
-        if (PFBarrelPlugin.getEconomy().getBalance(player) >= cost) {
-            PFBarrelPlugin.getEconomy().withdrawPlayer(player, cost);
-            if (key.equals("sell-booster")) barrel.upgradeSellBooster();
-            else barrel.upgradeSellAmount();
+        String baseKey = item.getType().name();
+        String organicKey = baseKey + "_ORGANIC";
 
-            String msg = plugin.getConfig().getString("messages.upgrade-success")
-                    .replace("%level%", String.valueOf(currentLevel + 1));
-            player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
-            playSound(player, "success");
+        if (isOrganic && plugin.getConfigManager().isValidKey(organicKey)) return organicKey;
+        if (plugin.getConfigManager().isValidKey(baseKey)) return baseKey;
 
-            plugin.getGuiManager().openMainMenu(player, barrel);
-        } else {
-            String msg = plugin.getConfig().getString("messages.insufficient-funds")
-                    .replace("%cost%", String.format("%,.0f", cost));
-            player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
-            playSound(player, "error");
-        }
-    }
-
-    private void playSound(Player p, String type) {
-        String soundName = plugin.getConfig().getString("sounds." + type);
-        if (soundName != null) {
-            try { p.playSound(p.getLocation(), Sound.valueOf(soundName), 1f, 1f); } catch (Exception e) {}
-        }
+        return null;
     }
 
     @EventHandler
@@ -288,8 +276,7 @@ public class BarrelListener implements Listener {
         if (item.getType() != Material.BARREL || !item.hasItemMeta()) return;
 
         PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
-
-        if (pdc.has(PFBarrelCommand.BARREL_KEY, PersistentDataType.BYTE)) {
+        if (pdc.has(new NamespacedKey("pfbarrel", "is_infinite_barrel"), PersistentDataType.BYTE)) {
             plugin.getBarrelManager().createBarrel(event.getBlock().getLocation());
             BarrelData newBarrel = plugin.getBarrelManager().getBarrel(event.getBlock().getLocation());
 
@@ -319,28 +306,16 @@ public class BarrelListener implements Listener {
 
             ItemStack drop = new ItemStack(Material.BARREL);
             ItemMeta meta = drop.getItemMeta();
-
-            String name = plugin.getConfigManager().getString("barrel-block.name");
-            meta.displayName(plugin.getConfigManager().getMessageRaw(name));
-
-            List<Component> lore = plugin.getConfigManager().getLore("barrel-block.lore");
-            lore.add(Component.empty());
-            lore.add(Component.text("§7Contains saved items/upgrades"));
-            meta.lore(lore);
-
-            PersistentDataContainer pdc = meta.getPersistentDataContainer();
-            pdc.set(PFBarrelCommand.BARREL_KEY, PersistentDataType.BYTE, (byte) 1);
+            meta.displayName(plugin.getConfigManager().getMessageRaw(plugin.getConfigManager().getString("barrel-block.name")));
+            meta.getPersistentDataContainer().set(new NamespacedKey("pfbarrel", "is_infinite_barrel"), PersistentDataType.BYTE, (byte) 1);
 
             String levels = data.getSellBoosterLevel() + ":" + data.getSellAmountLevel();
-            pdc.set(KEY_LEVELS, PersistentDataType.STRING, levels);
+            meta.getPersistentDataContainer().set(KEY_LEVELS, PersistentDataType.STRING, levels);
 
             String items = data.serializeItems();
-            if (!items.isEmpty()) {
-                pdc.set(KEY_ITEMS, PersistentDataType.STRING, items);
-            }
+            if (!items.isEmpty()) meta.getPersistentDataContainer().set(KEY_ITEMS, PersistentDataType.STRING, items);
 
             drop.setItemMeta(meta);
-
             event.setDropItems(false);
             event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), drop);
 
@@ -359,25 +334,61 @@ public class BarrelListener implements Listener {
         if (barrel == null) return;
 
         ItemStack item = event.getItem();
-        if (!plugin.getConfigManager().isAllowedCrop(item.getType())) return;
+        String key = identifyKeyFromItem(item);
+
+        if (key == null) {
+            event.setCancelled(true);
+            return;
+        }
 
         event.setCancelled(true);
-        barrel.addItem(item.getType(), item.getAmount());
+        barrel.addItem(key, item.getAmount());
 
         final ItemStack itemToRemove = item.clone();
         org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
             event.getSource().removeItem(itemToRemove);
         });
     }
-    public Map<UUID, BarrelData> getOpenBarrels() {
-        return openBarrels;
+
+    private void processUpgrade(Player player, BarrelData barrel, String key) {
+        ConfigManager cfg = plugin.getConfigManager();
+        String path = "upgrades." + key + ".";
+        int currentLevel = (key.equals("sell-booster")) ? barrel.getSellBoosterLevel() : barrel.getSellAmountLevel();
+        int maxLevel = cfg.getInt(path + "max-level");
+
+        if (currentLevel >= maxLevel) {
+            player.sendMessage(plugin.getConfigManager().getMessage("upgrade-maxed"));
+            playSound(player, "error");
+            return;
+        }
+
+        double base = cfg.getDouble(path + "start-cost");
+        double mult = cfg.getDouble(path + "cost-multiplier");
+        double cost = base * Math.pow(mult, currentLevel);
+
+        if (PFBarrelPlugin.getEconomy().getBalance(player) >= cost) {
+            PFBarrelPlugin.getEconomy().withdrawPlayer(player, cost);
+            if (key.equals("sell-booster")) barrel.upgradeSellBooster();
+            else barrel.upgradeSellAmount();
+            String msg = plugin.getConfig().getString("messages.upgrade-success").replace("%level%", String.valueOf(currentLevel + 1));
+            player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
+            playSound(player, "success");
+            plugin.getGuiManager().openMainMenu(player, barrel);
+        } else {
+            String msg = plugin.getConfig().getString("messages.insufficient-funds").replace("%cost%", String.format("%,.0f", cost));
+            player.sendMessage(plugin.getConfigManager().getMessageRaw(msg));
+            playSound(player, "error");
+        }
     }
 
-    public Map<UUID, Material> getSelectedMaterials() {
-        return selectedMaterial;
+    private void playSound(Player p, String type) {
+        String soundName = plugin.getConfig().getString("sounds." + type);
+        if (soundName != null) {
+            try { p.playSound(p.getLocation(), Sound.valueOf(soundName), 1f, 1f); } catch (Exception e) {}
+        }
     }
 
-    public Map<UUID, Integer> getWithdrawAmounts() {
-        return withdrawAmounts;
-    }
+    public Map<UUID, BarrelData> getOpenBarrels() { return openBarrels; }
+    public Map<UUID, String> getSelectedCropKeys() { return selectedCropKey; }
+    public Map<UUID, Integer> getWithdrawAmounts() { return withdrawAmounts; }
 }

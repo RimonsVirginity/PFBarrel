@@ -42,11 +42,41 @@ public class GUIManager {
     public void refreshMainMenu(Inventory inv, BarrelData barrel) {
         ConfigManager cfg = plugin.getConfigManager();
         int size = cfg.getInt("menus.main.size");
+        int startSlot = cfg.getInt("menus.main.crop-slots-start");
 
-        int slot = cfg.getInt("menus.main.crop-slots-start");
-        for (Material mat : cfg.getAllowedCrops()) {
+        if (cfg.getBoolean("menus.main.fill-empty")) {
+            ItemStack filler = new ItemStack(Material.valueOf(cfg.getString("menus.main.fill-material")));
+            ItemMeta meta = filler.getItemMeta();
+            meta.displayName(Component.empty());
+            filler.setItemMeta(meta);
+
+            for (int i = startSlot; i < size; i++) {
+                if (i == cfg.getInt("menus.main.upgrade-booster.slot") ||
+                        i == cfg.getInt("menus.main.upgrade-amount.slot")) continue;
+                inv.setItem(i, filler);
+            }
+        } else {
+            for (int i = startSlot; i < size; i++) {
+                if (i == cfg.getInt("menus.main.upgrade-booster.slot") ||
+                        i == cfg.getInt("menus.main.upgrade-amount.slot")) continue;
+                inv.setItem(i, null);
+            }
+        }
+
+        int slot = startSlot;
+        for (String key : cfg.getAllowedCropKeys()) {
             if (slot >= size) break;
-            inv.setItem(slot, createCropItem(barrel, mat));
+
+            if (barrel.getAmount(key) <= 0) continue;
+
+            if (slot == cfg.getInt("menus.main.upgrade-booster.slot") ||
+                    slot == cfg.getInt("menus.main.upgrade-amount.slot")) {
+                slot++;
+            }
+
+            if (slot >= size) break;
+
+            inv.setItem(slot, createCropItem(barrel, key));
             slot++;
         }
 
@@ -54,10 +84,10 @@ public class GUIManager {
         addUpgradeButton(inv, barrel, "upgrade-amount", "sell-amount");
     }
 
-    public void openWithdrawMenu(Player player, BarrelData barrel, Material material, int currentWithdraw) {
+    public void openWithdrawMenu(Player player, BarrelData barrel, String key, int currentWithdraw) {
         ConfigManager cfg = plugin.getConfigManager();
         int size = cfg.getInt("menus.withdraw.size");
-        String title = cfg.getString("menus.withdraw.title").replace("%item%", prettify(material.name()));
+        String title = cfg.getString("menus.withdraw.title").replace("%item%", prettify(key.replace("_ORGANIC", "")));
 
         Inventory inv = Bukkit.createInventory(null, size, serializer.deserialize(title));
 
@@ -65,19 +95,20 @@ public class GUIManager {
             fillInventory(inv, Material.valueOf(cfg.getString("menus.withdraw.fill-material")));
         }
 
-        refreshWithdrawMenu(inv, player, barrel, material, currentWithdraw);
+        refreshWithdrawMenu(inv, player, barrel, key, currentWithdraw);
 
         player.openInventory(inv);
     }
 
-    public void refreshWithdrawMenu(Inventory inv, Player player, BarrelData barrel, Material material, int currentWithdraw) {
+    public void refreshWithdrawMenu(Inventory inv, Player player, BarrelData barrel, String key, int currentWithdraw) {
         ConfigManager cfg = plugin.getConfigManager();
 
-        long totalStored = barrel.getAmount(material);
-        ItemStack infoItem = new ItemStack(material);
+        long totalStored = barrel.getAmount(key);
+        ItemStack infoItem = barrel.createItemFromKey(key, 1);
         ItemMeta meta = infoItem.getItemMeta();
         meta.displayName(Component.text("Stats", NamedTextColor.GOLD));
         List<Component> lore = new ArrayList<>();
+        if (meta.hasLore()) lore.addAll(meta.lore());
         lore.add(Component.text("Stored: " + String.format("%,d", totalStored), NamedTextColor.GRAY));
         lore.add(Component.text("Withdraw: " + String.format("%,d", currentWithdraw), NamedTextColor.AQUA));
         meta.lore(lore);
@@ -96,7 +127,7 @@ public class GUIManager {
             }
         }
 
-        int maxSpace = calculateSpace(player, material);
+        int maxSpace = calculateSpace(player, barrel.createItemFromKey(key, 1));
         int maxPossible = (int) Math.min(maxSpace, totalStored);
         boolean isFull = (currentWithdraw >= maxPossible && maxPossible > 0);
 
@@ -114,15 +145,25 @@ public class GUIManager {
         String logicPath = "upgrades." + upgradeKey + ".";
 
         int level = (upgradeKey.equals("sell-booster")) ? barrel.getSellBoosterLevel() : barrel.getSellAmountLevel();
-        double baseCost = cfg.getDouble(logicPath + "start-cost");
-        double multiplier = cfg.getDouble(logicPath + "cost-multiplier");
-        double cost = baseCost * Math.pow(multiplier, level);
+        int maxLevel = cfg.getInt(logicPath + "max-level");
+        boolean isMaxed = level >= maxLevel;
+
         double currentPercent = level * cfg.getDouble(logicPath + "percent-per-level");
-        double nextPercent = (level + 1) * cfg.getDouble(logicPath + "percent-per-level");
         long baseAmt = cfg.getInt(logicPath + "base-amount");
         long incAmt = cfg.getInt(logicPath + "amount-per-level");
         long currentAmt = baseAmt + (level * incAmt);
-        long nextAmt = baseAmt + ((level + 1) * incAmt);
+
+        double cost = 0;
+        double nextPercent = 0;
+        long nextAmt = 0;
+
+        if (!isMaxed) {
+            double baseCost = cfg.getDouble(logicPath + "start-cost");
+            double multiplier = cfg.getDouble(logicPath + "cost-multiplier");
+            cost = baseCost * Math.pow(multiplier, level);
+            nextPercent = (level + 1) * cfg.getDouble(logicPath + "percent-per-level");
+            nextAmt = baseAmt + ((level + 1) * incAmt);
+        }
 
         ItemStack item = new ItemStack(Material.valueOf(cfg.getString(menuPath + "material")));
         ItemMeta meta = item.getItemMeta();
@@ -130,26 +171,49 @@ public class GUIManager {
 
         List<String> rawLore = plugin.getConfig().getStringList(menuPath + "lore");
         List<Component> lore = new ArrayList<>();
+
         for (String line : rawLore) {
+            if (isMaxed) {
+                if (line.toLowerCase().contains("next") || line.toLowerCase().contains("cost")) {
+                    continue;
+                }
+                if (line.contains("%level%")) {
+                    line = line.replace("%level%", String.valueOf(level) + " &c(MAXED)");
+                }
+            }
+
             String p = line.replace("%level%", String.valueOf(level))
                     .replace("%cost%", String.format("%,.0f", cost))
                     .replace("%percent%", String.valueOf(currentPercent))
                     .replace("%next_percent%", String.valueOf(nextPercent))
                     .replace("%amount%", String.valueOf(currentAmt))
                     .replace("%next_amount%", String.valueOf(nextAmt));
+
             lore.add(serializer.deserialize(p));
         }
+
+        if (isMaxed) {
+            lore.add(serializer.deserialize("&c&lMAX LEVEL REACHED"));
+        }
+
         meta.lore(lore);
         item.setItemMeta(meta);
+
         inv.setItem(cfg.getInt(menuPath + "slot"), item);
     }
 
-    private ItemStack createCropItem(BarrelData barrel, Material mat) {
-        ItemStack item = new ItemStack(mat);
+    private ItemStack createCropItem(BarrelData barrel, String key) {
+        ItemStack item = barrel.createItemFromKey(key, 1);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text(prettify(mat.name()), NamedTextColor.GOLD));
+        String displayName = key.replace("_ORGANIC", "");
+        meta.displayName(Component.text(prettify(displayName), NamedTextColor.GOLD));
+
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.text("Stored: " + String.format("%,d", barrel.getAmount(mat)), NamedTextColor.WHITE));
+        if (meta.hasLore()) {
+            lore.addAll(meta.lore());
+            lore.add(Component.empty());
+        }
+        lore.add(Component.text("Stored: " + String.format("%,d", barrel.getAmount(key)), NamedTextColor.WHITE));
         lore.add(Component.text("Right-click to withdraw", NamedTextColor.YELLOW));
         meta.lore(lore);
         item.setItemMeta(meta);
@@ -179,13 +243,16 @@ public class GUIManager {
         }
     }
 
-    private int calculateSpace(Player player, Material mat) {
+    private int calculateSpace(Player player, ItemStack prototype) {
         int space = 0;
+        Material mat = prototype.getType();
+        int maxStack = mat.getMaxStackSize();
+
         for (ItemStack i : player.getInventory().getStorageContents()) {
             if (i == null || i.getType() == Material.AIR) {
-                space += mat.getMaxStackSize();
-            } else if (i.getType() == mat) {
-                space += (mat.getMaxStackSize() - i.getAmount());
+                space += maxStack;
+            } else if (i.isSimilar(prototype)) {
+                space += (maxStack - i.getAmount());
             }
         }
         return space;

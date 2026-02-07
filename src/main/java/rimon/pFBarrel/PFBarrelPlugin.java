@@ -31,6 +31,7 @@ public class PFBarrelPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(this.barrelListener, this);
 
         getCommand("pfbarrel").setExecutor(new PFBarrelCommand(this));
+        getCommand("pfsell").setExecutor(new PFBarrelSellCommand(this));
 
         new BarrelUpdateTask(this).runTaskTimer(this, 20L, 20L);
 

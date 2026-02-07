@@ -1,7 +1,22 @@
+# ==========================================
+#      PF Barrel - Crop Prices & List
+# ==========================================
+# Define the crops allowed in the barrel here.
+# Syntax:
+#   MATERIAL_NAME: PRICE
+#   MATERIAL_NAME_ORGANIC: PRICE
+#
+# Note: For organic items, append "_ORGANIC" to the material name.
+# The plugin will automatically look for the lore defined in config.yml
+
 crops:
   WHEAT: 10.0
   CARROT: 12.5
   POTATO: 12.5
-  NETHER_WART: 25.0
-  PUMPKIN: 15.0
-  MELON_SLICE: 5.0
+  NETHER_WART: 20.0
+
+  # Organic Variants
+  # These items must have the material (CARROT) AND the lore from config.yml
+  CARROT_ORGANIC: 25.0
+  POTATO_ORGANIC: 25.0
+  WHEAT_ORGANIC: 20.0

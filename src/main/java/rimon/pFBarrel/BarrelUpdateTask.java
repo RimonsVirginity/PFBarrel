@@ -1,7 +1,6 @@
 package rimon.pFBarrel;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -34,11 +33,11 @@ public class BarrelUpdateTask extends BukkitRunnable {
                     plugin.getGuiManager().refreshMainMenu(top, barrel);
                 }
                 else if (isWithdraw) {
-                    Material mat = listener.getSelectedMaterials().get(uuid);
+                    String key = listener.getSelectedCropKeys().get(uuid);
                     Integer amount = listener.getWithdrawAmounts().get(uuid);
 
-                    if (mat != null && amount != null) {
-                        plugin.getGuiManager().refreshWithdrawMenu(top, player, barrel, mat, amount);
+                    if (key != null && amount != null) {
+                        plugin.getGuiManager().refreshWithdrawMenu(top, player, barrel, key, amount);
                     }
                 }
             }

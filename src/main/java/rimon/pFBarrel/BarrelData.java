@@ -7,11 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import net.kyori.adventure.text.Component;
 
 public class BarrelData {
 
     private final Location location;
-    private final Map<Material, Long> storedItems;
+    private final Map<String, Long> storedItems;
     private int sellBoosterLevel;
     private int sellAmountLevel;
 
@@ -24,24 +26,24 @@ public class BarrelData {
 
     public Location getLocation() { return location; }
 
-    public void addItem(Material mat, long amount) {
-        storedItems.put(mat, storedItems.getOrDefault(mat, 0L) + amount);
+    public void addItem(String key, long amount) {
+        storedItems.put(key, storedItems.getOrDefault(key, 0L) + amount);
     }
 
-    public void removeItem(Material mat, long amount) {
-        long current = storedItems.getOrDefault(mat, 0L);
+    public void removeItem(String key, long amount) {
+        long current = storedItems.getOrDefault(key, 0L);
         if (current <= amount) {
-            storedItems.remove(mat);
+            storedItems.remove(key);
         } else {
-            storedItems.put(mat, current - amount);
+            storedItems.put(key, current - amount);
         }
     }
 
-    public long getAmount(Material mat) {
-        return storedItems.getOrDefault(mat, 0L);
+    public long getAmount(String key) {
+        return storedItems.getOrDefault(key, 0L);
     }
 
-    public Map<Material, Long> getStoredItemsMap() {
+    public Map<String, Long> getStoredItemsMap() {
         return storedItems;
     }
 
@@ -71,8 +73,8 @@ public class BarrelData {
     public String serializeItems() {
         if (storedItems.isEmpty()) return "";
         StringBuilder sb = new StringBuilder();
-        for (Map.Entry<Material, Long> entry : storedItems.entrySet()) {
-            sb.append(entry.getKey().name()).append(":").append(entry.getValue()).append(";");
+        for (Map.Entry<String, Long> entry : storedItems.entrySet()) {
+            sb.append(entry.getKey()).append(":").append(entry.getValue()).append(";");
         }
         return sb.toString();
     }
@@ -84,9 +86,8 @@ public class BarrelData {
             for (String part : parts) {
                 if (part.contains(":")) {
                     String[] split = part.split(":");
-                    Material mat = Material.getMaterial(split[0]);
-                    long amt = Long.parseLong(split[1]);
-                    if (mat != null) storedItems.put(mat, amt);
+
+                    storedItems.put(split[0], Long.parseLong(split[1]));
                 }
             }
         } catch (Exception e) {
@@ -98,21 +99,38 @@ public class BarrelData {
         List<ItemStack> soldBatch = new ArrayList<>();
         long remainingCap = getItemsSoldPerShard();
 
-        for (Material mat : PFBarrelPlugin.getInstance().getConfigManager().getAllowedCrops()) {
+        for (String key : PFBarrelPlugin.getInstance().getConfigManager().getAllowedCropKeys()) {
             if (remainingCap <= 0) break;
 
-            long stored = getAmount(mat);
+            long stored = getAmount(key);
             if (stored > 0) {
                 long take = Math.min(stored, remainingCap);
 
                 if (take > 0) {
-                    soldBatch.add(new ItemStack(mat, (int) take));
-                    removeItem(mat, take);
+                    soldBatch.add(createItemFromKey(key, (int) take));
+                    removeItem(key, take);
                     remainingCap -= take;
                 }
             }
         }
-
         return soldBatch;
+    }
+
+    public ItemStack createItemFromKey(String key, int amount) {
+        boolean isOrganic = key.endsWith("_ORGANIC");
+        String matName = isOrganic ? key.replace("_ORGANIC", "") : key;
+        Material mat = Material.getMaterial(matName);
+        if (mat == null) mat = Material.BARRIER;
+
+        ItemStack item = new ItemStack(mat, amount);
+        if (isOrganic) {
+            ItemMeta meta = item.getItemMeta();
+            String loreLine = PFBarrelPlugin.getInstance().getConfigManager().getString("settings.organic-lore");
+            List<Component> lore = new ArrayList<>();
+            lore.add(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand().deserialize(loreLine));
+            meta.lore(lore);
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 }

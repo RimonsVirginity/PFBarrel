@@ -2,7 +2,6 @@ package rimon.pFBarrel;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -56,17 +55,18 @@ public class BarrelManager {
         dataConfig = new YamlConfiguration();
 
         for (Map.Entry<String, BarrelData> entry : barrels.entrySet()) {
-            String key = entry.getKey();
+            String locKey = entry.getKey();
             BarrelData data = entry.getValue();
 
-            ConfigurationSection section = dataConfig.createSection("barrels." + key);
+            ConfigurationSection section = dataConfig.createSection("barrels." + locKey);
 
             section.set("booster_level", data.getSellBoosterLevel());
             section.set("amount_level", data.getSellAmountLevel());
-            for (Material mat : plugin.getConfigManager().getAllowedCrops()) {
-                long amount = data.getAmount(mat);
+
+            for (String cropKey : plugin.getConfigManager().getAllowedCropKeys()) {
+                long amount = data.getAmount(cropKey);
                 if (amount > 0) {
-                    section.set("items." + mat.name(), amount);
+                    section.set("items." + cropKey, amount);
                 }
             }
         }
@@ -93,17 +93,16 @@ public class BarrelManager {
 
             BarrelData data = new BarrelData(loc);
             ConfigurationSection section = barrelsSection.getConfigurationSection(key);
+
             int booster = section.getInt("booster_level", 0);
             int amount = section.getInt("amount_level", 0);
             data.setLevels(booster, amount);
+
             if (section.contains("items")) {
                 ConfigurationSection itemsSec = section.getConfigurationSection("items");
-                for (String matName : itemsSec.getKeys(false)) {
-                    Material mat = Material.getMaterial(matName);
-                    if (mat != null) {
-                        long count = itemsSec.getLong(matName);
-                        data.addItem(mat, count);
-                    }
+                for (String cropKey : itemsSec.getKeys(false)) {
+                    long count = itemsSec.getLong(cropKey);
+                    data.addItem(cropKey, count);
                 }
             }
             barrels.put(key, data);

@@ -42,31 +42,26 @@ public class ConfigManager {
     public List<Component> getLore(String path) {
         List<String> raw = plugin.getConfig().getStringList(path);
         List<Component> colored = new ArrayList<>();
-        for (String s : raw) {
-            colored.add(serializer.deserialize(s));
-        }
+        for (String s : raw) colored.add(serializer.deserialize(s));
         return colored;
     }
 
-    public List<Material> getAllowedCrops() {
-        List<Material> materials = new ArrayList<>();
+    public List<String> getAllowedCropKeys() {
+        List<String> keys = new ArrayList<>();
         if (itemsConfig.contains("crops")) {
             for (String key : itemsConfig.getConfigurationSection("crops").getKeys(false)) {
-                try {
-                    materials.add(Material.valueOf(key.toUpperCase()));
-                } catch (IllegalArgumentException e) {
-                }
+                keys.add(key.toUpperCase());
             }
         }
-        return materials;
+        return keys;
     }
 
-    public double getPrice(Material mat) {
-        return itemsConfig.getDouble("crops." + mat.name(), 0.0);
+    public double getPrice(String key) {
+        return itemsConfig.getDouble("crops." + key, 0.0);
     }
 
-    public boolean isAllowedCrop(Material mat) {
-        return itemsConfig.contains("crops." + mat.name());
+    public boolean isValidKey(String key) {
+        return itemsConfig.contains("crops." + key);
     }
 
     private void createItemsConfig() {
