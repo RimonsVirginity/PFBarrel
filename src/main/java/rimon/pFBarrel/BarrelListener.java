@@ -11,6 +11,7 @@ import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -45,6 +46,9 @@ public class BarrelListener implements Listener {
 
     @EventHandler
     public void onBarrelInteract(PlayerInteractEvent event) {
+        if (event.useInteractedBlock().equals(Event.Result.DENY)){
+            return;
+        }
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Block block = event.getClickedBlock();
         if (block == null || block.getType() != Material.BARREL) return;
