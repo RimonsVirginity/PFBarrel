@@ -101,12 +101,14 @@ menus:
 # --- Upgrade Logic ---
 upgrades:
   sell-booster:
+    enabled: true
     start-cost: 30000000.0
     cost-multiplier: 2.0      # Price doubles every level
     percent-per-level: 2.0    # 2% increase per level
     max-level: 10             # Max level cap
 
   sell-amount:
+    enabled: true
     start-cost: 2000000.0
     cost-multiplier: 2.0
     base-amount: 3456         # Level 0 amount

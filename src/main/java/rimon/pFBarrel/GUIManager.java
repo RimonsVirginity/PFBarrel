@@ -144,6 +144,10 @@ public class GUIManager {
         String menuPath = "menus.main." + menuKey + ".";
         String logicPath = "upgrades." + upgradeKey + ".";
 
+        if (!cfg.getBoolean(logicPath + "enabled")) {
+            return;
+        }
+
         int level = (upgradeKey.equals("sell-booster")) ? barrel.getSellBoosterLevel() : barrel.getSellAmountLevel();
         int maxLevel = cfg.getInt(logicPath + "max-level");
         boolean isMaxed = level >= maxLevel;

@@ -353,6 +353,11 @@ public class BarrelListener implements Listener {
     private void processUpgrade(Player player, BarrelData barrel, String key) {
         ConfigManager cfg = plugin.getConfigManager();
         String path = "upgrades." + key + ".";
+
+        if (!cfg.getBoolean(path + "enabled")) {
+            return;
+        }
+
         int currentLevel = (key.equals("sell-booster")) ? barrel.getSellBoosterLevel() : barrel.getSellAmountLevel();
         int maxLevel = cfg.getInt(path + "max-level");
 
