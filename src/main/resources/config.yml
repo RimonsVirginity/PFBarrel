@@ -7,6 +7,7 @@ settings:
   # The specific lore line to look for to identify "Organic" items.
   # This MUST match the color codes exactly (e.g. &5 for purple).
   organic-lore: "&5Organic Produce"
+  block-enchanted-items: true
 
 barrel-block:
   name: "&6&lInfinite Storage Barrel"

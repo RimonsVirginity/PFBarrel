@@ -345,6 +345,12 @@ public class BarrelListener implements Listener {
             return;
         }
 
+        if (plugin.getConfigManager().getBoolean("settings.block-enchanted-items")) {
+            if (!item.getEnchantments().isEmpty()) {
+                event.setCancelled(true);
+                return;
+            }
+        }
         event.setCancelled(true);
         barrel.addItem(key, item.getAmount());
 
