@@ -27,6 +27,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -251,26 +252,36 @@ public class BarrelListener implements Listener {
     private String identifyKeyFromItem(ItemStack item) {
         if (item == null || item.getType() == Material.AIR) return null;
 
-        boolean isOrganic = false;
-        String targetLore = plugin.getConfigManager().getString("settings.organic-lore");
+        if (!item.hasItemMeta()) {
+            String key = item.getType().name();
+            if (plugin.getConfigManager().isValidKey(key)) return key;
+            return null;
+        }
+        ItemMeta meta = item.getItemMeta();
 
-        if (item.hasItemMeta() && item.getItemMeta().hasLore()) {
-
-            for (Component c : item.getItemMeta().lore()) {
-                String plain = PlainTextComponentSerializer.plainText().serialize(c);
-                if (plain.toLowerCase().contains("organic produce")) {
-                    isOrganic = true;
-                    break;
-                }
-            }
+        if (meta.hasDisplayName()) {
+            return null;
         }
 
-        String baseKey = item.getType().name();
-        String organicKey = baseKey + "_ORGANIC";
+        if (meta.hasEnchants()) {
+            return null;
+        }
 
-        if (isOrganic && plugin.getConfigManager().isValidKey(organicKey)) return organicKey;
-        if (plugin.getConfigManager().isValidKey(baseKey)) return baseKey;
+        if (meta.hasLore()) {
+            List<String> lore = meta.getLore();
+            if (lore != null && lore.size() == 1) {
+                String line = lore.get(0);
+                if (line.contains("Organic produce")) {
 
+                    String organicKey = item.getType().name() + "_ORGANIC";
+                    if (plugin.getConfigManager().isValidKey(organicKey)) {
+                        return organicKey;
+                    }
+                }
+            }
+
+            return null;
+        }
         return null;
     }
 
