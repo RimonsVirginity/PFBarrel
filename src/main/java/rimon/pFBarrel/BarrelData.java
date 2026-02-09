@@ -95,7 +95,7 @@ public class BarrelData {
         }
     }
 
-    public List<ItemStack> collectSellableItems() {
+    public List<ItemStack> collectSellableItems(long maxUses) {
         List<ItemStack> soldBatch = new ArrayList<>();
         long remainingCap = getItemsSoldPerShard();
 
@@ -105,6 +105,7 @@ public class BarrelData {
             long stored = getAmount(key);
             if (stored > 0) {
                 long take = Math.min(stored, remainingCap);
+                take = Math.min(take, maxUses);
 
                 if (take > 0) {
                     soldBatch.add(createItemFromKey(key, (int) take));

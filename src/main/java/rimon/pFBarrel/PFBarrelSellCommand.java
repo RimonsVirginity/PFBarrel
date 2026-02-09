@@ -46,7 +46,7 @@ public class PFBarrelSellCommand implements CommandExecutor {
             return true;
         }
 
-        List<ItemStack> soldItems = barrel.collectSellableItems();
+        List<ItemStack> soldItems = barrel.collectSellableItems(10000000);
 
         if (soldItems.isEmpty()) {
             player.sendMessage(Component.text("Barrel is empty or sell limit reached!", NamedTextColor.YELLOW));
