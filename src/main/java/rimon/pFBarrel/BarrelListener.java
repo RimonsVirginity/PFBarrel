@@ -359,15 +359,11 @@ public class BarrelListener implements Listener {
                 return;
             }
         }
-        event.setCancelled(true);
         barrel.addItem(key, item.getAmount());
-        final ItemStack itemToRemove = item.clone();
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            if (event.getSource() != null) {
-                event.getSource().removeItem(itemToRemove);
-            }
-        });
-    }
+        event.setCancelled(true);
+        event.getSource().removeItem(item);
+        }
+
 
     private void processUpgrade(Player player, BarrelData barrel, String key) {
         ConfigManager cfg = plugin.getConfigManager();
