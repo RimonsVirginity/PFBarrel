@@ -134,14 +134,18 @@ public class BarrelListener implements Listener {
             processUpgrade(player, barrel, "sell-amount");
         } else {
             ItemStack clicked = event.getCurrentItem();
-            if (clicked == null || clicked.getType() == Material.AIR) return;
+            if (clicked == null || !clicked.hasItemMeta()) return;
+            org.bukkit.NamespacedKey nsk = new org.bukkit.NamespacedKey(plugin, "gui_crop_key");
+            org.bukkit.persistence.PersistentDataContainer pdc = clicked.getItemMeta().getPersistentDataContainer();
 
-            String detectedKey = identifyKeyFromItem(clicked);
-            if (detectedKey != null && cfg.isValidKey(detectedKey)) {
+            if (pdc.has(nsk, org.bukkit.persistence.PersistentDataType.STRING)) {
+                String key = pdc.get(nsk, org.bukkit.persistence.PersistentDataType.STRING);
+
                 playSound(player, "click");
-                selectedCropKey.put(player.getUniqueId(), detectedKey);
+                selectedCropKey.put(player.getUniqueId(), key);
                 withdrawAmounts.put(player.getUniqueId(), 1);
-                plugin.getGuiManager().openWithdrawMenu(player, barrel, detectedKey, 1);
+
+                plugin.getGuiManager().openWithdrawMenu(player, barrel, key, 1);
             }
         }
     }

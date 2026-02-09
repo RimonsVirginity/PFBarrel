@@ -209,6 +209,7 @@ public class GUIManager {
     private ItemStack createCropItem(BarrelData barrel, String key) {
         ItemStack item = barrel.createItemFromKey(key, 1);
         ItemMeta meta = item.getItemMeta();
+
         String displayName = key.replace("_ORGANIC", "");
         meta.displayName(Component.text(prettify(displayName), NamedTextColor.GOLD));
 
@@ -220,6 +221,9 @@ public class GUIManager {
         lore.add(Component.text("Stored: " + String.format("%,d", barrel.getAmount(key)), NamedTextColor.WHITE));
         lore.add(Component.text("Right-click to withdraw", NamedTextColor.YELLOW));
         meta.lore(lore);
+        org.bukkit.NamespacedKey nsk = new org.bukkit.NamespacedKey(plugin, "gui_crop_key");
+        meta.getPersistentDataContainer().set(nsk, org.bukkit.persistence.PersistentDataType.STRING, key);
+
         item.setItemMeta(meta);
         return item;
     }
