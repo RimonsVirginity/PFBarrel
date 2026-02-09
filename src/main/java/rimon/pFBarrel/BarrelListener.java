@@ -258,7 +258,7 @@ public class BarrelListener implements Listener {
 
             for (Component c : item.getItemMeta().lore()) {
                 String plain = PlainTextComponentSerializer.plainText().serialize(c);
-                if (plain.contains("Organic Produce")) {
+                if (plain.toLowerCase().contains("organic produce")) {
                     isOrganic = true;
                     break;
                 }
