@@ -80,5 +80,12 @@
             <version>1.7</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>us.thezircon.play</groupId>
+            <artifactId>autopickup</artifactId>
+            <version>1.0</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/libs/AutoPickup.jar</systemPath>
+        </dependency>
     </dependencies>
 </project>

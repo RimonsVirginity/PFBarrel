@@ -13,6 +13,7 @@ public class PFBarrelPlugin extends JavaPlugin {
     private BarrelManager barrelManager;
     private GUIManager guiManager;
     private BarrelListener barrelListener;
+    private AutoPickupHook autoPickupHook;
 
     @Override
     public void onEnable() {
@@ -22,6 +23,10 @@ public class PFBarrelPlugin extends JavaPlugin {
             getLogger().severe("Disabled due to no Vault dependency found!");
             getServer().getPluginManager().disablePlugin(this);
             return;
+        }
+        if (getServer().getPluginManager().getPlugin("AutoPickup") != null) {
+            this.autoPickupHook = new AutoPickupHook();
+            getLogger().info("Hooked into AutoPickup!");
         }
 
         this.configManager = new ConfigManager(this);
@@ -52,7 +57,7 @@ public class PFBarrelPlugin extends JavaPlugin {
         econ = rsp.getProvider();
         return econ != null;
     }
-
+    public AutoPickupHook getAutoPickupHook() {return autoPickupHook; }
     public static PFBarrelPlugin getInstance() { return instance; }
     public static Economy getEconomy() { return econ; }
     public ConfigManager getConfigManager() { return configManager; }

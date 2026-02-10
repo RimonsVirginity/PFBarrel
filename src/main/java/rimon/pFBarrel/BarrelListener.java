@@ -331,10 +331,14 @@ public class BarrelListener implements Listener {
 
             String items = data.serializeItems();
             if (!items.isEmpty()) meta.getPersistentDataContainer().set(KEY_ITEMS, PersistentDataType.STRING, items);
-
             drop.setItemMeta(meta);
             event.setDropItems(false);
-            event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), drop);
+
+            if (plugin.getAutoPickupHook() != null) {
+                plugin.getAutoPickupHook().handleDrop(event.getBlock().getLocation(), event.getPlayer(), drop);
+            } else {
+                event.getBlock().getWorld().dropItemNaturally(event.getBlock().getLocation(), drop);
+            }
 
             plugin.getBarrelManager().removeBarrel(event.getBlock().getLocation());
             event.getPlayer().sendMessage(plugin.getConfigManager().getMessage("barrel-removed"));
@@ -360,8 +364,7 @@ public class BarrelListener implements Listener {
             }
         }
         barrel.addItem(key, item.getAmount());
-        event.setCancelled(true);
-        event.getSource().removeItem(item);
+        event.setItem(new ItemStack(Material.AIR));
         }
 
 

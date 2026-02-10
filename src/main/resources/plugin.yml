@@ -2,7 +2,7 @@ name: PFBarrel
 version: '1.0-SNAPSHOT'
 main: rimon.pFBarrel.PFBarrelPlugin
 api-version: '1.21'
-softdepend: [GriefPrevention]
+softdepend: [GriefPrevention, AutoPickup]
 commands:
   pfbarrel:
     description: Main command for PF Barrels
